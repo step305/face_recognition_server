@@ -32,7 +32,7 @@ while not loaded:
         loaded = True
     except Exception as e:
         pass
-cv2.imshow('a', known_persons[users[0]]["face_ID"])
+cv2.imshow(users[0], known_persons[users[0]]["face_ID"])
 cv2.waitKey(1000)
 
 
