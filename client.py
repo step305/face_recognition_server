@@ -22,10 +22,16 @@ download_url = addr + '/api/downloadID'
 content_type = 'image/jpeg'
 headers = {'content-type': content_type}
 
-response = requests.post(download_url, data='req')
-known_persons = pickle.loads(codecs.decode(json.loads(response.text)['message'].encode(), "base64"))
-print(known_persons)
-users = [*known_persons]
+loaded = False
+while not loaded:
+    try:
+        response = requests.post(download_url, data='req')
+        known_persons = pickle.loads(codecs.decode(json.loads(response.text)['message'].encode(), "base64"))
+        print(known_persons)
+        users = [*known_persons]
+        loaded = True
+    except Exception as e:
+        pass
 cv2.imshow('a', known_persons[users[0]]["face_ID"])
 cv2.waitKey(1000)
 

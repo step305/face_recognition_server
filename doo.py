@@ -406,10 +406,17 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
     # prepare headers for http request
     content_type = 'image/jpeg'
     headers = {'content-type': content_type}
-    response = requests.post(download_url, data='req')
-    known_persons = pickle.loads(codecs.decode(json.loads(response.text)['message'].encode(), "base64"))
-    print(known_persons)
-    user_names = [*known_persons]
+
+    loaded = False
+    while not loaded:
+        try:
+            response = requests.post(download_url, data='req')
+            known_persons = pickle.loads(codecs.decode(json.loads(response.text)['message'].encode(), "base64"))
+            print(known_persons)
+            user_names = [*known_persons]
+            loaded = True
+        except Exception as e:
+            pass
 
     logger.info('Loaded model and classifier')
 
@@ -445,10 +452,15 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
             door_id, img = frame_buffer.get()
             rgb_img = img[:, :, ::-1]
 
-            _, img_encoded = cv2.imencode('.jpg', rgb_img)
-            response = requests.post(test_url, data=img_encoded.tostring(), headers=headers)
-            (persons, unknowns_cnt) = pickle.loads(
-                codecs.decode(json.loads(response.text)['message'].encode(), "base64"))
+            try:
+                _, img_encoded = cv2.imencode('.jpg', rgb_img)
+                response = requests.post(test_url, data=img_encoded.tostring(), headers=headers)
+                (persons, unknowns_cnt) = pickle.loads(
+                    codecs.decode(json.loads(response.text)['message'].encode(), "base64"))
+            except Exception as e:
+                persons = []
+                unknowns_cnt = 0
+
             if (unknowns_cnt > 0) | persons:
                 if door_id == 0:
                     LEDevent1.set()
