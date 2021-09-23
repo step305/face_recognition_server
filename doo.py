@@ -63,7 +63,7 @@ def cam_thread(frame_buffer, LEDevent, stop):
     import logging
     logger = logging.getLogger('camera_thread')
     logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler('/home/step305/Door/Faces/LogFaces/log_door_camera_thread.txt')
+    file_handler = logging.FileHandler('/home/step305/face_recognition_server/log_door_camera_thread.txt')
     formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
@@ -138,7 +138,7 @@ def cam_thread(frame_buffer, LEDevent, stop):
                 continue
             if frame_buffer.empty():
                 if skip_frames == 0:
-                    fr = cv2.resize(frame, (int(frame.shape[1] * 0.5), int(frame.shape[0] * 0.5)))
+                    fr = frame  # cv2.resize(frame, (int(frame.shape[1] * 0.5), int(frame.shape[0] * 0.5)))
                     frame_buffer.put((door_ID, fr))
                     skip_frames = skip_frames_MAX
                 else:
@@ -183,6 +183,7 @@ def cam_thread(frame_buffer, LEDevent, stop):
                 break
         except Exception as e:
             logger.error('exception in while loop')
+            logging.exception("Error")
     cam.release()
     screen_saver.release()
     logger.info('done!')
@@ -239,7 +240,7 @@ def cam_back_thread(frame_buffer, stop):
             continue
         if frame_buffer.empty():
             if skip_frames == 0:
-                fr = cv2.resize(frame, (int(frame.shape[1] * 0.5), int(frame.shape[0] * 0.5)))
+                fr = frame  # cv2.resize(frame, (int(frame.shape[1] * 0.5), int(frame.shape[0] * 0.5)))
                 frame_buffer.put((door_ID, fr))
                 skip_frames = skip_frames_MAX
             else:
@@ -261,7 +262,7 @@ def door_lock_thread(personID, LEDevent1, LEDevent2, disp_off_event, stop):
     import logging
     logger = logging.getLogger('door_lock_thread')
     logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler('/home/step305/Door/Faces/LogFaces/log_door_door_lock_thread.txt')
+    file_handler = logging.FileHandler('/home/step305/face_recognition_server/log_door_door_lock_thread.txt')
     formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
@@ -327,7 +328,7 @@ def door_lock_thread(personID, LEDevent1, LEDevent2, disp_off_event, stop):
             door_id, pers_id_data = personID.get()
             if len(pers_id_data) > 0:
                 nowDate = datetime.now()
-                log_filepath = 'Faces/LogFaces/log_{}_{}_{}.txt'.format(nowDate.day, nowDate.month, nowDate.year)
+                log_filepath = 'log_{}_{}_{}.txt'.format(nowDate.day, nowDate.month, nowDate.year)
                 user_name, user_id, user_timestamp = pers_id_data[0]
                 logger.info('Person near the door')
                 if time2next_door_open < (now_time + 1):
@@ -379,6 +380,7 @@ def door_lock_thread(personID, LEDevent1, LEDevent2, disp_off_event, stop):
             wiegand_port.close()
         except Exception as e:
             logger.error('Exception in while loop')
+            logging.exception("Error")
             res_reset = reset_door_locker()
             if res_reset == 0:
                 logger.info('USB reset done!')
@@ -395,7 +397,7 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
     import logging
     logger = logging.getLogger('recognition_thread')
     logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler('/home/step305/Door/Faces/LogFaces/log_door_recognition_thread.txt')
+    file_handler = logging.FileHandler('/home/step305/face_recognition_server/log_door_recognition_thread.txt')
     formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
@@ -412,8 +414,8 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
         try:
             response = requests.post(download_url, data='req')
             known_persons = pickle.loads(codecs.decode(json.loads(response.text)['message'].encode(), "base64"))
-            print(known_persons)
             user_names = [*known_persons]
+            logger.info('Downloaded from server: {}'.format(user_names))
             loaded = True
         except Exception as e:
             pass
@@ -421,7 +423,6 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
     logger.info('Loaded model and classifier')
 
     for user in user_names:
-        print(datetime.now(), ':', user + " loaded ID")
         logger.info("{} loaded ID".format(user))
         face_image = known_persons[user]["face_ID"]
         face_image = cv2.resize(face_image, (360, 480))
@@ -450,7 +451,8 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
                 sleep(0.01)
                 continue
             door_id, img = frame_buffer.get()
-            rgb_img = img[:, :, ::-1]
+            # rgb_img = img[:, :, ::-1]
+            rgb_img = img
 
             try:
                 _, img_encoded = cv2.imencode('.jpg', rgb_img)
@@ -460,8 +462,9 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
             except Exception as e:
                 persons = []
                 unknowns_cnt = 0
+                logger.warning('Send frame to server fail.')
 
-            if (unknowns_cnt > 0) | persons:
+            if (unknowns_cnt > 0) | bool(persons):
                 if door_id == 0:
                     LEDevent1.set()
                     logger.info('Person near the door')
@@ -475,10 +478,18 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
                     LEDevent2.clear()
 
             if persons:
-                for person in persons:
+                logger.info('Found: {}'.format(persons))
+                for person_pack in persons:
+                    person = person_pack[0]
                     person_found = known_persons.get(person)
                     if person_found:
                         known_persons[person]["last_seen"] = datetime.now()
+
+                        logger.info('Info: {} was on {} - {} times'.format(
+                            person,
+                            known_persons[person]["last_seen"],
+                            known_persons[person]["seen_frames"]))
+
                         if known_persons[person]["first_seen"] != datetime(1, 1, 1):
                             known_persons[person]["seen_frames"] += 1
                             if datetime.now() - known_persons[person]["first_seen_this_interaction"] > \
@@ -491,7 +502,7 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
 
             persons_data = []
             for user in known_persons:
-                if datetime.now() - known_persons[user]["last_seen"] > timedelta(seconds=2):
+                if datetime.now() - known_persons[user]["last_seen"] > timedelta(seconds=3):
                     known_persons[user]["seen_frames"] = 0
                 if known_persons[user]["seen_frames"] > 3:
                     persons_data.append((known_persons[user]["name"],
@@ -511,6 +522,7 @@ def recognition_thread(frame_buffer, person_ID, LEDevent1, LEDevent2, stop):
                 FPS += 1
         except Exception as e:
             logger.error('Exception in while loop')
+            logging.exception("Error")
 
 
 if __name__ == '__main__':

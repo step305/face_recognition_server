@@ -92,7 +92,7 @@ class FaceRecognizer:
         self.result = False
         self.persons_data = []
         self.image = prepare_img(img)
-        (h, w) = img.shape[:2]
+        (h, w) = self.image.shape[:2]
         self.boxes = []
         if self.detect_faces(self.image):
             for i in range(0, self.detections.shape[2]):
@@ -100,9 +100,9 @@ class FaceRecognizer:
                 if self.confidence > FACE_DETECTOR_CONFIDENSE:
                     box = self.detections[0, 0, i, 3:7] * np.array([w, h, w, h])
                     (startX, startY, endX, endY) = box.astype("int")
-                    x0 = int(startX + w / 10)
-                    y0 = int(startY + h / 4)
-                    x1 = int(endX - w / 10)
+                    x0 = int(startX + 0 * w / 10)
+                    y0 = int(startY + 0.2 * h / 4)
+                    x1 = int(endX - 0 * w / 10)
                     y1 = int(endY)
                     self.boxes.append((y0, x1, y1, x0))
         unknowns_cnt = len(self.boxes)
@@ -120,5 +120,7 @@ class FaceRecognizer:
                     person_found = self.known_persons.get(predicted_user)
                     if person_found is not None:
                         self.persons_data.append((person_found["name"],
-                                                  person_found["ID"]))
+                                                  person_found["ID"],
+                                                  face_location))
+        print(self.persons_data)
         return self.result, self.persons_data, unknowns_cnt
