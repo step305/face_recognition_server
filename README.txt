@@ -25,4 +25,5 @@ TODO - clean the code, rewrite some stuff
 This is project for personal use mainly. And code from it should be considered as for sample use only.
 Main purpose is educational - build client-server app using Flask, OpenCV, DLIB (via face_recognition module).
 
+TODO - online training
 TODO - face liveness detection using ResNet NN.
