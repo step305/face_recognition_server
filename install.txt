@@ -145,3 +145,4 @@ pip3 install pillow
 pip3 install h5py
 pip3 install keras
 
+git clone https://github.com/step305/face_recognition_server
