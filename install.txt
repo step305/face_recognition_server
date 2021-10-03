@@ -148,3 +148,17 @@ pip3 install keras
 sudo apt-get install git bmon
 
 git clone https://github.com/step305/face_recognition_server
+
+sudo apt install net-tools
+
+sudo apt-get install libssl-dev
+
+sudo systemctl set-default multi-user
+
+chmod +x startServer.sh
+chmod +x startMultiServer.sh
+
+run:
+./startServer.sh
+or
+./startMultiServer.sh

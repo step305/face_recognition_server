@@ -6,13 +6,14 @@ import time
 import argparse
 import pickle
 import codecs
+from config.config import SERVER_PUBLIC_IP
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--port", required=True, default=5000, type=int,
                 help="path to input dataset")
 args = vars(ap.parse_args())
 
-addr = 'http://178.154.195.107:{}'.format(args['port'])  # 'http://178.154.195.107:{}'.format(args['port'])
+addr = 'http://{}:{}'.format(SERVER_PUBLIC_IP, args['port'])
 test_url = addr + '/api/face_recognize'
 download_url = addr + '/api/downloadID'
 
