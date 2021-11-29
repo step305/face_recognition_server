@@ -1,2 +1,2 @@
-cd face_recognition_server
+cd Server
 python3 start_servers.py

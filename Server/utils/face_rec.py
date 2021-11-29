@@ -1,24 +1,13 @@
 import cv2
 import pickle
-from datetime import datetime, timedelta
 import os
-import logging
 import numpy as np
 import face_recognition
-import time
 
 
-logger = logging.getLogger('recognition_thread')
-logger.setLevel(logging.INFO)
-file_handler = logging.FileHandler('Logs/log_recognition_thread.txt')
-formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-
-
-MODEL_PROTOPATH = 'model/deploy.prototxt'
-MODEL_MODELPATH = 'model/res10_300x300_ssd_iter_140000.caffemodel'
-KNN_MODELPATH = 'model/trained_knn_model.clf'
+MODEL_PROTOPATH = 'NN_models/deploy.prototxt'
+MODEL_MODELPATH = 'NN_models/res10_300x300_ssd_iter_140000.caffemodel'
+KNN_MODELPATH = 'NN_models/trained_knn_model.clf'
 FACE_DETECTOR_CONFIDENSE = 0.5
 FACE_RECOGNITION_THRESHOLD = 0.5
 
@@ -31,14 +20,12 @@ def prepare_img(img):
 
 def load_known_faces():
     known_persons = {}
-    logger.info('Loaded model and classifier')
-    for class_dir in os.listdir('KnownFaces/'):
+    for class_dir in os.listdir('UsersDataBase/'):
         if class_dir == 'Unknown':
             continue
-        logger.info("{} - loaded ID".format(class_dir))
-        face_image = cv2.imread(os.path.join("KnownFaces/", class_dir, "face_ID.jpg"))
+        face_image = cv2.imread(os.path.join("UsersDataBase/", class_dir, "face_ID.jpg"))
         face_image = cv2.resize(face_image, (360, 480))
-        with open(os.path.join("KnownFaces/", class_dir, "cardID.txt"), "r") as f:
+        with open(os.path.join("UsersDataBase/", class_dir, "cardID.txt"), "r") as f:
             ID = int(f.read())
         known_persons[class_dir] = {
             "face_ID": face_image,
@@ -49,43 +36,46 @@ def load_known_faces():
 
 
 def calc_encodings(img, boxes):
-    t0 = time.time()
     enc = face_recognition.face_encodings(img, known_face_locations=boxes, model='small')
-    t1 = time.time()
-    print('Face encodings: {}ms'.format((t1-t0)*1e3))
     return enc
 
 
 class FaceRecognizer:
-    def __init__(self):
+    def __init__(self, logger):
         self.protopath = MODEL_PROTOPATH
         self.modelpath = MODEL_MODELPATH
         self.detector = cv2.dnn.readNetFromCaffe(self.protopath, self.modelpath)
         self.detections = None
         self.boxes = None
+        self.enc = None
+        self.closest_distances = None
+        self.are_matches = None
         self.result = False
         self.imageBlob = None
         self.persons_data = []
         self.image = None
-        logger.info('Models loaded')
+        self.confidence = 0
+        self.logger = logger
+        self.logger.info('Models loaded')
 
         with open(KNN_MODELPATH, 'rb') as f:
             self.knn_clf = pickle.load(f)
-        logger.info('KNN predictor loaded')
+        self.logger.info('KNN predictor loaded')
 
+        self.known_persons = {}
         self.known_persons = load_known_faces()
-        logger.info('Faces loaded')
+        self.logger.info('Loaded NN_models and classifier')
+        for pers in self.known_persons:
+            self.logger.info("{} - loaded ID".format(self.known_persons[pers]["name"]))
+        self.logger.info('Users loaded')
 
     def detect_faces(self, image):
-        t0 = time.time()
         self.result = False
         self.imageBlob = cv2.dnn.blobFromImage(image, 1.0, (300, 300), (104.0, 177.0, 123.0), swapRB=False, crop=False)
         self.detector.setInput(self.imageBlob)
         self.detections = self.detector.forward()
         if self.detections.shape[2] > 0:
             self.result = True
-        t1 = time.time()
-        print('Face detect: {}ms'.format((t1-t0)*1e3))
         return self.result
 
     def recognize_face(self, img):
@@ -109,7 +99,6 @@ class FaceRecognizer:
         if self.boxes:
             self.result = True
             self.enc = calc_encodings(self.image, self.boxes)
-            # print(self.detections.shape[2])
             self.closest_distances = self.knn_clf.kneighbors(self.enc, n_neighbors=1)
             self.are_matches = [self.closest_distances[0][i][0] <= FACE_RECOGNITION_THRESHOLD
                                 for i in range(len(self.boxes))]
@@ -122,5 +111,4 @@ class FaceRecognizer:
                         self.persons_data.append((person_found["name"],
                                                   person_found["ID"],
                                                   face_location))
-        print(self.persons_data)
         return self.result, self.persons_data, unknowns_cnt

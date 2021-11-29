@@ -6,6 +6,7 @@ import utils.face_rec as fr
 import argparse
 from config.config import SERVER_STATIC_IP
 import pickle
+import logging
 import codecs
 
 
@@ -15,10 +16,14 @@ ap.add_argument("-p", "--port", required=True, default=5000, type=int,
 args = vars(ap.parse_args())
 
 
-MAX_RECOGNIZERS = 1
-recognizer_counter = 0
+logger = logging.getLogger('recognition_thread_at_port_' + str(args['port']))
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler('Logs/log_recognition_thread_at_port_' + str(args['port']) + '.txt')
+formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
-recognizer = [fr.FaceRecognizer() for i in range(MAX_RECOGNIZERS)]
+recognizer = fr.FaceRecognizer(logger)
 
 # Initialize the Flask application
 app = Flask(__name__)
@@ -27,7 +32,7 @@ app = Flask(__name__)
 # route http posts to this method
 @app.route('/api/face_recognize', methods=['POST'])
 def recognize_request():
-    recogn = recognizer[0]
+    recogn = recognizer
     r = request
     # convert string of image data to uint8
     # nparr = np.fromstring(r.data, np.uint8)
@@ -52,7 +57,7 @@ def recognize_request():
 @app.route('/api/downloadID', methods=['POST'])
 def download_request():
     r = request
-    recogn = recognizer[0]
+    recogn = recognizer
     msg = codecs.encode(pickle.dumps(recogn.known_persons), "base64").decode()
     response = {'message': msg}
     response_pickled = jsonpickle.encode(response)

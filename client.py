@@ -6,7 +6,7 @@ import time
 import argparse
 import pickle
 import codecs
-from config.config import SERVER_PUBLIC_IP
+from Client.config.config import SERVER_PUBLIC_IP
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--port", required=True, default=5000, type=int,
@@ -32,7 +32,7 @@ while not loaded:
     except Exception as e:
         pass
 
-img = cv2.imread('test.jpg')
+img = cv2.imread('Client/Media/test.jpg')
 # encode image as jpeg
 for i in range(10):
     t0 = time.time()
