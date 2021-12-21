@@ -53,27 +53,29 @@ main (int argc, char *argv[])
 
   gst_init(&argc, &argv);
 
-  if (argc < 3) {
-    g_print("Usage:\n./RTSPserver inPort:XXXX outPort:YYYY\n");
-    return -1;
-  }
+//  if (argc < 3) {
+//    g_print("Usage:\n./RTSPserver inPort:XXXX outPort:YYYY\n");
+//    return -1;
+//  }
 
-  if (sscanf(argv[1], "inPort:%d", &inPort) != 1)
-  {
-    g_print("Error! First argument should be inPort:XXXX, where XXXX - port number\n");
-    return -1;
-  }
+//  if (sscanf(argv[1], "inPort:%d", &inPort) != 1)
+//  {
+//    g_print("Error! First argument should be inPort:XXXX, where XXXX - port number\n");
+//    return -1;
+//  }
 
-  if (sscanf(argv[2], "outPort:%d", &outPort) != 1)
-  {
-    g_print("Error! Second argument should be outPort:XXXX, where XXXX - port number\n");
-    return -1;
-  }
+//  if (sscanf(argv[2], "outPort:%d", &outPort) != 1)
+//  {
+//    g_print("Error! Second argument should be outPort:XXXX, where XXXX - port number\n");
+//    return -1;
+//  }
+  inPort = 5000;
+  outPort = 8000;
   sprintf(outPortStr, "%d", outPort);
 
   sprintf(udpsrc_pipeline,
    "( udpsrc name=pay0 port=%d caps=\"application/x-rtp, media=video, "
-   "clock-rate=90000, encoding-name=H265, payload=96 \" )", inPort);
+   "clock-rate=90000, encoding-name=H264, payload=96 \" )", inPort);
   loop = g_main_loop_new (NULL, FALSE);
 
   /* create a server instance */

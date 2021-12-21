@@ -125,3 +125,5 @@ display_rotate=2
 display_rotate=3
 
 0 is the normal configuration. 1 is 90 degrees. 2 is 180 degress. 3 is 270 degrees.
+
+pip3 install "picamera[array]"

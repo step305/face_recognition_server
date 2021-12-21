@@ -4,9 +4,13 @@ from __future__ import print_function
 from multiprocessing import Process
 import multiprocessing
 import time
-import camera_thread
 import recognition_thread
 import door_lock_thread
+from config.config import USE_PICAMERA
+if USE_PICAMERA:
+    import picamera_thread
+else:
+    import camera_thread
 
 
 if __name__ == '__main__':
@@ -24,9 +28,14 @@ if __name__ == '__main__':
     captured_frame_buffer = multiprocessing.Manager().Queue(1)
     person_id_queue = multiprocessing.Manager().Queue(1)
 
-    camera_process = Process(target=camera_thread.camera_thread,
-                             args=(captured_frame_buffer, wakeup_event, global_stop_event),
-                             daemon=True)
+    if USE_PICAMERA:
+        camera_process = Process(target=picamera_thread.camera_thread,
+                                 args=(captured_frame_buffer, wakeup_event, global_stop_event),
+                                 daemon=True)
+    else:
+        camera_process = Process(target=camera_thread.camera_thread,
+                                 args=(captured_frame_buffer, wakeup_event, global_stop_event),
+                                 daemon=True)
     camera_process.start()
 
     recognition_process = Process(target=recognition_thread.recognition_thread,

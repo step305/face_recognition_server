@@ -1,4 +1,6 @@
 import cv2
+from picamera.array import PiRGBArray
+from picamera import PiCamera
 from datetime import datetime
 from utils import utils
 import numpy as np
@@ -21,31 +23,11 @@ FRAMES_FOR_FPS = 100
 def camera_thread(frame_buffer, wakeup_event, stop_event):
     logger = utils.logger_config('camera_thread')
 
-    capture_pipeline = (
-        'v4l2src device=/dev/video0 ! '
-        'image/jpeg, width={}, height={}, framerate={}/1, format=MJPG ! '
-        'jpegparse ! jpegdec ! videoconvert ! video/x-raw, format=BGR ! appsink'.format(CAMERA_FRAME_SIZE[0],
-                                                                                        CAMERA_FRAME_SIZE[1],
-                                                                                        CAMERA_FPS)
-    )
+    cam = PiCamera()
+    cam.resolution = CAMERA_FRAME_SIZE
+    cam.framerate = CAMERA_FPS
+    raw_frame = PiRGBArray(cam, size=CAMERA_FRAME_SIZE)
 
-    capture_pipeline = (
-        'v4l2src device=/dev/video0 ! '
-        'video/x-raw width={}, height={}, framerate={}/1, format=YUY2 ! '
-        'videoconvert ! video/x-raw, format=BGR ! appsink'.format(CAMERA_FRAME_SIZE[0],
-                                                                  CAMERA_FRAME_SIZE[1],
-                                                                  CAMERA_FPS)
-    )
-    cam = cv2.VideoCapture(capture_pipeline, cv2.CAP_GSTREAMER)
-
-    # writer_pipeline = (
-    #    'appsrc ! videoconvert ! video/x-raw, format=NV12 ! '
-    #    'nvvidconv ! video/x-raw(memory:NVMM), width={}, height={}, format=NV12 ! '
-    #    'nvv4l2h265enc bitrate=8000000 maxperf-enable=1 '
-    #    'preset-level=1 insert-sps-pps=1 profile=1 iframeinterval=1 ! '
-    #    'h264parse ! rtph264pay ! udpsink host=127.0.0.1 '
-    #    'port=5000 async=0 sync=0'
-    # ).format(CAMERA_FRAME_SIZE[0], CAMERA_FRAME_SIZE[1])
     writer_pipeline = (
         'appsrc ! videoconvert ! video/x-raw, width={}, height={} ! '
         'x264enc ! video/x-h264, profile=high ! udpsink host=127.0.0.1 port=5000 sync=false'
@@ -102,11 +84,9 @@ def camera_thread(frame_buffer, wakeup_event, stop_event):
 
     saver_frame_counter = 0
 
-    while True:
+    for piframe in cam.capture_continuous(raw_frame, format="bgr", use_video_port=True):
         try:
-            ret, frame = cam.read()
-            if not ret:
-                continue
+            frame = piframe.array
             frame = cv2.flip(frame, 1)
             if frame_buffer.empty():
                 if skip_frames == 0:
@@ -163,6 +143,7 @@ def camera_thread(frame_buffer, wakeup_event, stop_event):
                 break
             if stop_event.is_set():
                 break
+            raw_frame.truncate(0)
         except Exception as e:
             logger.error('exception in while loop')
             logging.exception("Error")

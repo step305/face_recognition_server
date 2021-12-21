@@ -16,6 +16,7 @@ DOOR_OPENED_DELAY = 5
 
 def relay_init():
     GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
     for pin in GPIO_RELAY_PINS:
         GPIO.setup(pin, GPIO.OUT)
 
@@ -70,14 +71,15 @@ def reset_door_locker():
 def door_lock_thread(person_data_queue, person_detected_event, disp_wakeup_event, stop_event):
     logger = utils.logger_config('door_lock_thread')
 
-    GPIO.setmode(GPIO.BCM)
+    relay_init()
 
-    snd_allowed_cmd = ('gst-launch-1.0 filesrc location=allowed.ogg ! oggdemux ! '
+    snd_allowed_cmd = ('gst-launch-1.0 filesrc location=Media/allowed.ogg ! oggdemux ! '
                        'vorbisdec ! audioconvert ! audioresample ! pulsesink &')
 
     time_to_LED_off = time.time()
     time_to_next_door_open = time.time()
     logger.info('started')
+    led_state = 'off'
 
     while True:
         try:
@@ -89,19 +91,23 @@ def door_lock_thread(person_data_queue, person_detected_event, disp_wakeup_event
             now_time = time.time()
 
             if person_detected_event.is_set():
-                disp_wakeup_event.set()
-                time_to_LED_off = now_time + LED_OFF_DELAY
-                wiegand_relay(wiegand_port, 1, 'on')
-                wiegand_relay(wiegand_port, 1, 'on')
-                door_relay(1, 'on')
-                logger.info('LED on')
+                if led_state == 'off':
+                    disp_wakeup_event.set()
+                    time_to_LED_off = now_time + LED_OFF_DELAY
+                    wiegand_relay(wiegand_port, 1, 'on')
+                    wiegand_relay(wiegand_port, 1, 'on')
+                    door_relay(1, 'on')
+                    logger.info('LED on')
+                    led_state = 'on'
 
             if time_to_LED_off < (now_time + LED_OFF_DELAY/3):
-                disp_wakeup_event.clear()
-                wiegand_relay(wiegand_port, 1, 'off')
-                wiegand_relay(wiegand_port, 1, 'off')
-                door_relay(1, 'off')
-                logger.info('LED off')
+                if led_state == 'on':
+                    disp_wakeup_event.clear()
+                    wiegand_relay(wiegand_port, 1, 'off')
+                    wiegand_relay(wiegand_port, 1, 'off')
+                    door_relay(1, 'off')
+                    logger.info('LED off')
+                    led_state = 'off'
 
             if person_data_queue.empty():
                 time.sleep(0.01)
